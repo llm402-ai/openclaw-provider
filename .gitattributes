@@ -1,0 +1,26 @@
+# Enforce LF line endings on all text files. Prevents CRLF drift on
+# Windows checkouts, which would break JSON parsing in some tools and
+# produce noisy diffs. Binary files are auto-detected by git.
+* text=auto eol=lf
+
+# Explicit LF for files most likely to be touched by cross-OS contributors
+*.ts   text eol=lf
+*.js   text eol=lf
+*.json text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+*.md   text eol=lf
+*.html text eol=lf
+*.css  text eol=lf
+*.sh   text eol=lf
+
+# Windows-native scripts keep CRLF
+*.bat  text eol=crlf
+*.ps1  text eol=crlf
+
+# Binary — never normalize
+*.png  binary
+*.jpg  binary
+*.ico  binary
+*.woff2 binary
+*.ttf  binary

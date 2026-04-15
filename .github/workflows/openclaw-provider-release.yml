@@ -1,0 +1,146 @@
+# Release workflow for @llm402/openclaw-provider
+#
+# Since 0.3.0 this repo publishes a single package. @llm402/core@0.2.0 was
+# merged into @llm402/openclaw-provider@0.3.0 (see openclaw-provider/src/lib/).
+# @llm402/core is being deprecated on npm via `npm deprecate` (not unpublished).
+#
+# SECURITY MODEL — OIDC trusted publisher:
+#   - npmjs.com is configured to trust this workflow via OIDC (no long-lived
+#     NPM_TOKEN secret stored in the repo). Configure trusted publisher at:
+#     https://docs.npmjs.com/trusted-publishers
+#   - Every publish carries a provenance attestation linking tarball → git
+#     commit → CI run. Users can verify with `npm audit signatures`.
+#   - Repo secrets have NO npm tokens. If we need to rotate, we rotate the
+#     trusted publisher config on npmjs, not a secret in GitHub.
+#
+# RELEASE FLOW:
+#   1. Tag push:
+#      - `openclaw-v0.3.0-rc.1` → publishes @llm402/openclaw-provider to npm
+#        `rc-only` dist-tag (RC dry-run, kept OFF `next` so Renovate /
+#        dependabot don't auto-pull pre-releases)
+#      - `openclaw-v0.3.0`      → publishes @llm402/openclaw-provider to npm
+#        `next` dist-tag (production release candidate)
+#   2. 48h soak on `next`
+#   3. Run workflow_dispatch with version=0.3.0 to promote from `next` → `latest`.
+#   4. NEVER `npm unpublish` (72h window + breaks dependents). Bad versions
+#      are handled by `npm deprecate` + patch release.
+#
+# PREREQUISITES (one-time, documented in SECURITY.md):
+#   - @llm402 npm scope created
+#   - Trusted publisher configured on npmjs.com for @llm402/openclaw-provider with
+#     owner=llm402-ai, repo=openclaw-provider, workflow=openclaw-provider-release.yml,
+#     environment=(none) or `production` if using env protection
+#   - Branch protection on main requires openclaw-provider-ci to pass
+
+name: openclaw-provider Release
+
+on:
+  push:
+    tags:
+      - 'openclaw-v*.*.*'          # real release, e.g. openclaw-v0.3.0
+      - 'openclaw-v*.*.*-rc.*'     # RC dry-run, e.g. openclaw-v0.3.0-rc.1
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version of @llm402/openclaw-provider to promote (e.g. 0.3.0) — must already exist on `next`
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  # ==========================================================================
+  # Publish @llm402/openclaw-provider on tag openclaw-v*
+  # ==========================================================================
+  publish-plugin:
+    name: Publish @llm402/openclaw-provider
+    if: startsWith(github.ref, 'refs/tags/openclaw-v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Refuse to publish from a non-main commit
+        run: |
+          git fetch origin main:refs/remotes/origin/main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::Tag commit $GITHUB_SHA is not an ancestor of origin/main. Refusing to publish unreviewed code."
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - run: npm ci
+
+      - name: Build openclaw-provider
+        working-directory: openclaw-provider
+        run: npm run clean && npm run build
+
+      - name: Verify version consistency
+        working-directory: openclaw-provider
+        run: npm run verify:versions
+
+      - name: Run test suite (belt-and-braces before publish)
+        working-directory: openclaw-provider
+        run: npm test
+
+      - name: Verify tag matches package.json version
+        working-directory: openclaw-provider
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#openclaw-v}"
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $PKG_VERSION"
+            exit 1
+          fi
+
+      - name: Publish to npm (with provenance)
+        working-directory: openclaw-provider
+        run: |
+          # RC tags (e.g. openclaw-v0.3.0-rc.1) publish to 'rc-only' dist-tag,
+          # kept OFF 'next' so Renovate/dependabot don't auto-pull pre-releases.
+          # Real release tags publish to 'next' for 48h soak before promotion
+          # to 'latest' via workflow_dispatch.
+          if [[ "$GITHUB_REF_NAME" =~ -rc\.[0-9]+$ ]]; then
+            NPM_TAG=rc-only
+          else
+            NPM_TAG=next
+          fi
+          echo "Tag $GITHUB_REF_NAME → publishing with --tag $NPM_TAG"
+          npm publish --provenance --access public --tag "$NPM_TAG"
+
+  # ==========================================================================
+  # Manual promotion from `next` to `latest` (human-initiated via UI)
+  # ==========================================================================
+  promote-to-latest:
+    name: Promote to latest
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Validate version shape
+        run: |
+          if ! echo "${{ inputs.version }}" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$'; then
+            echo "::error::Version must be semver (e.g. 0.2.0 or 0.2.0-beta.1)"
+            exit 1
+          fi
+
+      - name: Promote @llm402/openclaw-provider@${{ inputs.version }} from next to latest
+        run: |
+          npm dist-tag add "@llm402/openclaw-provider@${{ inputs.version }}" latest

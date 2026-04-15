@@ -1,0 +1,205 @@
+# CI for @llm402/openclaw-provider
+#
+# Since 0.3.0 this repo ships a single package. @llm402/core was merged into
+# openclaw-provider/src/lib/ and is being deprecated on npm.
+#
+# Runs on every push and PR that touches the plugin. Matrix:
+# {Ubuntu, macOS, Windows} × {Node 22, Node 24} = 6 cells.
+# All 6 must be green before merge to main (configure branch protection
+# on main to require this workflow).
+#
+# What it does per cell:
+#   - npm ci (workspace-wide)
+#   - Build @llm402/openclaw-provider
+#   - Run the openclaw-provider test suite (100+ unit/integration tests)
+#   - npm pack --dry-run to verify tarball hygiene (no source maps, no
+#     test files, no .claude/ content)
+#   - Install-from-tarball integration test (clean node_modules, real import)
+#   - Version consistency check (package.json + manifest + version.ts)
+name: openclaw-provider CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'openclaw-provider/**'
+      - '.github/workflows/openclaw-provider-ci.yml'
+      - 'package.json'
+      - 'package-lock.json'
+  pull_request:
+    paths:
+      - 'openclaw-provider/**'
+      - '.github/workflows/openclaw-provider-ci.yml'
+      - 'package.json'
+      - 'package-lock.json'
+  workflow_dispatch: {}
+
+# Cancel duplicate in-flight runs on the same branch/PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: ${{ matrix.os }} · Node ${{ matrix.node }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node: [22, 24]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Node ${{ matrix.node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Clean install
+        run: npm ci
+
+      - name: Build @llm402/openclaw-provider
+        working-directory: openclaw-provider
+        run: npm run clean && npm run build
+
+      - name: Verify version consistency
+        working-directory: openclaw-provider
+        run: npm run verify:versions
+
+      - name: Run openclaw-provider tests
+        working-directory: openclaw-provider
+        run: npm test
+
+      - name: Verify CLI bin executable
+        shell: bash
+        working-directory: openclaw-provider
+        run: |
+          # Catches broken bin entries pre-release: missing shebang, unreadable
+          # build output, exports-path bugs, cross-platform path-separator issues.
+          # Skipped pre-Layer-4 when package.json has no bin field yet.
+          HAS_BIN=$(node -p "Boolean(require('./package.json').bin)")
+          if [ "$HAS_BIN" != "true" ]; then
+            echo "Skipped: no bin entry in package.json (pre-Layer-4)"
+            exit 0
+          fi
+          # npx resolves cross-platform (including Windows .cmd wrappers)
+          npx --no-install llm402-openclaw --help
+          echo "OK: llm402-openclaw --help exits 0"
+
+      - name: Verify tarball hygiene (no source maps, no secrets)
+        working-directory: openclaw-provider
+        shell: bash
+        run: |
+          OUT=$(npm pack --dry-run 2>&1)
+          echo "$OUT"
+          if echo "$OUT" | grep -qE "\.map$|\.map\s"; then
+            echo "::error::Tarball contains source maps (.map files)"
+            exit 1
+          fi
+          if echo "$OUT" | grep -qE "(test/|\.claude/)"; then
+            echo "::error::Tarball contains test/ or .claude/ files"
+            exit 1
+          fi
+
+      # ---------------------------------------------------------------
+      # Install-from-tarball integration test.
+      # Packs the real tarball, installs it into a fresh temp directory
+      # (clean node_modules, no workspace symlinks), imports the entry
+      # point, and asserts activate() is callable. This catches:
+      #   - missing files in the published tarball
+      #   - broken `exports` paths
+      #   - ESM/CJS resolution bugs
+      #   - Windows path-separator bugs in import paths
+      #   - Missing runtime deps (cashu-ts, nostr-tools) pulled in by
+      #     the collapsed lib code
+      # ---------------------------------------------------------------
+      - name: Integration — install from tarball + import
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Pack the plugin tarball (output filename from npm pack --silent)
+          PLUGIN_TGZ=$(cd openclaw-provider && npm pack --silent | tail -1)
+
+          # Fresh temp dir — copy tarball INTO it so the consumer package.json
+          # can reference it by RELATIVE path. This avoids the git-bash-on-
+          # Windows + npm file:-URL bug where absolute paths like /d/a/...
+          # get mis-translated to C:\d\a\... and installs fail with ENOENT.
+          TEST_DIR=$(mktemp -d)
+          cp "openclaw-provider/$PLUGIN_TGZ" "$TEST_DIR/plugin.tgz"
+          cd "$TEST_DIR"
+          echo "Testing install in: $TEST_DIR"
+          ls -la
+
+          # Minimal consumer project — relative file: paths work cross-OS
+          cat > package.json <<'EOF'
+          {
+            "name": "openclaw-provider-install-test",
+            "version": "1.0.0",
+            "type": "module",
+            "dependencies": {
+              "@llm402/openclaw-provider": "file:./plugin.tgz"
+            }
+          }
+          EOF
+
+          npm install --no-audit --no-fund
+
+          # Import the plugin entry point and verify activate() is present.
+          node --input-type=module -e "
+            import { activate } from '@llm402/openclaw-provider';
+            if (typeof activate !== 'function') {
+              console.error('activate is not a function');
+              process.exit(1);
+            }
+            console.log('OK: activate imported and is callable');
+          "
+
+          # Check manifest + docs shipped (cross-platform Node-based checks,
+          # no bash `find` which differs on Windows/git-bash PATH).
+          node -e "
+            const fs = require('fs');
+            const path = require('path');
+            const root = path.join('node_modules', '@llm402', 'openclaw-provider');
+            const required = ['openclaw.plugin.json', 'README.md', 'SECURITY.md', 'CHANGELOG.md'];
+            for (const f of required) {
+              if (!fs.existsSync(path.join(root, f))) {
+                console.error('ERR: missing ' + f);
+                process.exit(1);
+              }
+            }
+            console.log('OK: all required files present');
+          "
+
+          # Check NO source maps shipped. Pure Node walker — no `find` binary
+          # required, works identically on Linux/macOS/Windows git-bash.
+          node -e "
+            const fs = require('fs');
+            const path = require('path');
+            function collect(dir, out = []) {
+              for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+                const p = path.join(dir, e.name);
+                if (e.isDirectory()) collect(p, out);
+                else out.push(p);
+              }
+              return out;
+            }
+            const root = path.join('node_modules', '@llm402', 'openclaw-provider');
+            const maps = collect(root).filter(f => f.endsWith('.map'));
+            if (maps.length) {
+              console.error('ERR: source maps present in installed package:');
+              for (const m of maps) console.error('  ' + m);
+              process.exit(1);
+            }
+            console.log('OK: zero source maps in installed package');
+          "
+
+          echo 'OK: integration install on ${{ matrix.os }} / Node ${{ matrix.node }}'

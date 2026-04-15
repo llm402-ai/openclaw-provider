@@ -1,0 +1,16 @@
+{
+  "name": "llm402-openclaw-provider-workspace",
+  "private": true,
+  "description": "Workspace root for @llm402/openclaw-provider (since 0.3.0: single-package; @llm402/core merged into openclaw-provider/src/lib/).",
+  "workspaces": [
+    "openclaw-provider"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/llm402-ai/openclaw-provider.git"
+  },
+  "license": "MIT"
+}

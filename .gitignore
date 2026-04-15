@@ -1,0 +1,41 @@
+# Build output (regenerated from source by `npm run build`)
+build/
+*.tsbuildinfo
+
+# Dependencies
+node_modules/
+
+# Publish artifacts
+*.tgz
+
+# OS / editor noise
+.DS_Store
+.vscode/
+.idea/
+*.swp
+
+# Environment / local config
+.env
+.env.*
+!.env.example
+
+# Claude Code agent memory — must NEVER be public
+# (pentester findings, agent context, internal notes)
+**/.claude/
+
+# npm debug / error logs
+npm-debug.log*
+yarn-error.log*
+.npm/
+.eslintcache
+
+# Test / coverage output
+coverage/
+*.lcov
+
+# Logs
+logs/
+*.log
+
+# Package manager lockfile for workspaces — we ship top-level only
+# (none to ignore currently; included for future-proofing if we stop shipping it)

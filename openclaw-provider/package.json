@@ -1,0 +1,89 @@
+{
+  "name": "@llm402/openclaw-provider",
+  "version": "0.3.0",
+  "description": "OpenClaw provider plugin for llm402.ai — pay-per-request LLM inference via Lightning, USDC, Cashu, or prepaid balance",
+  "type": "module",
+  "main": "build/index.js",
+  "types": "build/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./build/index.d.ts",
+      "import": "./build/index.js"
+    },
+    "./lib": {
+      "types": "./build/lib/index.d.ts",
+      "import": "./build/lib/index.js"
+    }
+  },
+  "bin": {
+    "llm402-openclaw": "build/cli.js"
+  },
+  "openclaw": {
+    "extensions": ["./build/index.js"],
+    "providers": ["llm402"]
+  },
+  "files": [
+    "build",
+    "openclaw.plugin.json",
+    "SECURITY.md",
+    "CHANGELOG.md",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "tsx test/run.ts",
+    "clean": "rm -rf build",
+    "prepack": "npm run clean && npm run build && npm run verify:versions",
+    "verify:versions": "node -e \"const pkg=require('./package.json').version;const man=require('./openclaw.plugin.json').version;const src=require('fs').readFileSync('./src/version.ts','utf8').match(/PLUGIN_VERSION = '([^']+)'/)[1];if(pkg!==man||pkg!==src){console.error('VERSION MISMATCH: package.json='+pkg+' manifest='+man+' src/version.ts='+src);process.exit(1)}console.log('versions match: '+pkg)\""
+  },
+  "dependencies": {
+    "@cashu/cashu-ts": "3.6.2",
+    "nostr-tools": "2.10.4",
+    "viem": "2.28.0",
+    "zod": "^3.24.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.2",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  },
+  "peerDependencies": {
+    "openclaw": ">=2026.4.12 <2027.0.0"
+  },
+  "peerDependenciesMeta": {
+    "openclaw": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/llm402-ai/openclaw-provider.git",
+    "directory": "openclaw-provider"
+  },
+  "homepage": "https://llm402.ai",
+  "bugs": {
+    "url": "https://github.com/llm402-ai/openclaw-provider/issues"
+  },
+  "keywords": [
+    "openclaw",
+    "openclaw-plugin",
+    "llm402",
+    "lightning",
+    "bitcoin",
+    "l402",
+    "x402",
+    "usdc",
+    "cashu",
+    "llm",
+    "ai",
+    "inference"
+  ],
+  "license": "MIT"
+}

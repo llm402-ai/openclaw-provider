@@ -1,0 +1,26 @@
+{
+  "name": "openclaw-provider-llm402",
+  "version": "0.0.1",
+  "description": "Placeholder. Install @llm402/openclaw-provider instead.",
+  "scripts": {
+    "postinstall": "node -e \"console.error('\\n⚠️  openclaw-provider-llm402 is a typosquat placeholder.\\n   The real package is @llm402/openclaw-provider.\\n   npm install @llm402/openclaw-provider\\n')\""
+  },
+  "keywords": [
+    "placeholder",
+    "typosquat-defense"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/llm402-ai/openclaw-provider.git",
+    "directory": "scripts/typosquats/openclaw-provider-llm402"
+  },
+  "homepage": "https://www.npmjs.com/package/@llm402/openclaw-provider",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./index.js",
+      "require": "./index.cjs"
+    }
+  }
+}

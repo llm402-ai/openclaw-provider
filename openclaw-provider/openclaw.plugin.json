@@ -1,0 +1,82 @@
+{
+  "id": "llm402-provider",
+  "name": "llm402.ai",
+  "version": "0.3.0",
+  "description": "335 AI models, pay-per-request via Lightning, USDC, Cashu ecash, or prepaid balance. No accounts, no API keys.",
+  "icon": "lightning",
+  "author": "llm402",
+  "homepage": "https://llm402.ai",
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "paymentMode": {
+        "type": "string",
+        "enum": ["balance", "cashu", "x402", "lightning"],
+        "default": "balance"
+      },
+      "balanceToken": { "type": "string", "pattern": "^bal_[A-Za-z0-9_-]{43}$" },
+      "cashuNsec": { "type": "string", "pattern": "^nsec1[a-z0-9]{58}$" },
+      "evmPrivateKey": { "type": "string", "pattern": "^0x[0-9a-fA-F]{64}$" },
+      "maxRequestBudgetSats": { "type": "integer", "minimum": 1, "maximum": 50000, "default": 500 },
+      "sessionBudgetSats": { "type": "integer", "minimum": 1, "maximum": 1000000, "default": 10000 },
+      "sessionBudgetUsdcCents": { "type": "integer", "minimum": 1, "maximum": 500000, "default": 5000 },
+      "baseUrl": { "type": "string", "format": "uri", "default": "https://llm402.ai" }
+    },
+    "additionalProperties": false
+  },
+  "auth": {
+    "type": "custom",
+    "fields": [
+      {
+        "key": "paymentMode",
+        "label": "Payment Mode",
+        "type": "select",
+        "options": ["balance", "cashu", "x402", "lightning"],
+        "default": "balance",
+        "description": "balance = prepaid token (simplest), cashu = ecash, x402 = USDC on Base, lightning = NWC"
+      },
+      {
+        "key": "balanceToken",
+        "label": "Balance Token",
+        "type": "secret",
+        "placeholder": "bal_...",
+        "description": "Prepaid balance token from llm402.ai. Simplest option — no wallet needed."
+      },
+      {
+        "key": "cashuNsec",
+        "label": "Cashu nsec",
+        "type": "secret",
+        "placeholder": "nsec1...",
+        "description": "Nostr secret key for Cashu wallet."
+      },
+      {
+        "key": "evmPrivateKey",
+        "label": "EVM Private Key",
+        "type": "secret",
+        "placeholder": "0x...",
+        "description": "Private key for USDC on Base (gasless EIP-3009). Never leaves your machine."
+      },
+      {
+        "key": "maxRequestBudgetSats",
+        "label": "Max per-request (sats)",
+        "type": "number",
+        "default": 500,
+        "description": "Reject any single request costing more than this"
+      },
+      {
+        "key": "sessionBudgetSats",
+        "label": "Session budget (sats)",
+        "type": "number",
+        "default": 10000,
+        "description": "Total spending cap per OpenClaw session (sats rail — L402, Cashu, balance)"
+      },
+      {
+        "key": "sessionBudgetUsdcCents",
+        "label": "Session USDC budget (cents)",
+        "type": "number",
+        "default": 5000,
+        "description": "Total USDC cap per session (100 cents = $1). Independent from the sats rail."
+      }
+    ]
+  }
+}
