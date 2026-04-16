@@ -1,6 +1,6 @@
 # @llm402/openclaw-provider
 
-OpenClaw provider plugin for [llm402.ai](https://llm402.ai) — 335+ AI models
+OpenClaw provider plugin for [llm402.ai](https://llm402.ai) — 400+ AI models
 with pay-per-request pricing via Bitcoin Lightning, USDC on Base, Cashu ecash,
 or prepaid balance tokens.
 
@@ -36,7 +36,7 @@ npm install @llm402/openclaw-provider
 
 - **Node.js**: v22 or later
 - **OpenClaw**: v2026.4.12 or later (tested)
-- **Disk**: ~90 KB for the plugin, ~60 MB for `viem` (x402 mode only)
+- **Disk**: ~260 KB for the plugin, ~44 MB for `viem` (x402 mode only)
 
 ---
 
@@ -74,6 +74,16 @@ LLM402_SHOW_SECRETS=1 npx llm402-openclaw init
 | `balance`       | Show Cashu balance per mint. Add `--check-usdc` for on-chain USDC. |
 | `check-funding` | Resolve pending quotes from prior `fund` timeouts. |
 | `sync`          | Opt-in: pull wallet state from Nostr relays (NIP-60). |
+
+### CLI environment variables
+
+| Variable              | Used by  | Purpose |
+|-----------------------|----------|---------|
+| `LLM402_SHOW_SECRETS` | `init`   | Set to `1` to reveal the generated `nsec` / EVM key and print a ready-to-paste config snippet. Hidden by default. |
+| `LLM402_NSEC`         | `init`, `sync` | Import an existing Nostr `nsec1...` instead of generating one. If a wallet already exists with a different `nsec`, `init` aborts to prevent silent overwrite. |
+| `LLM402_EVM_KEY`      | `init`   | Import an existing EVM private key (0x-prefixed hex) instead of generating one. |
+
+Flags (`--nsec`, `--evm-key`) are rejected on purpose — secrets passed on the command line leak via `/proc/cmdline` and shell history. Use the env vars above. The full CLI reference is at [llm402.ai/docs#openclaw](https://llm402.ai/docs#openclaw).
 
 ### 2. Balance mode (simplest, no wallet)
 
@@ -307,4 +317,4 @@ See [CHANGELOG.md](./CHANGELOG.md).
 
 ## License
 
-MIT — see [LICENSE](../LICENSE).
+MIT — see [LICENSE](./LICENSE).

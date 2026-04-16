@@ -1,7 +1,7 @@
 {
   "name": "@llm402/openclaw-provider",
   "version": "0.3.0",
-  "description": "OpenClaw provider plugin for llm402.ai — pay-per-request LLM inference via Lightning, USDC, Cashu, or prepaid balance",
+  "description": "OpenClaw provider plugin for llm402.ai — pay-per-request LLM inference via Bitcoin Lightning, USDC on Base, Cashu ecash, or prepaid balance tokens",
   "type": "module",
   "main": "build/index.js",
   "types": "build/index.d.ts",
@@ -27,7 +27,8 @@
     "openclaw.plugin.json",
     "SECURITY.md",
     "CHANGELOG.md",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "build": "tsc",
