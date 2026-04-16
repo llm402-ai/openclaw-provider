@@ -78,6 +78,8 @@ jobs:
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
+          scope: '@llm402'
+          always-auth: true
 
       - run: npm ci
 
@@ -133,6 +135,8 @@ jobs:
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
+          scope: '@llm402'
+          always-auth: true
 
       - name: Validate version shape
         run: |
