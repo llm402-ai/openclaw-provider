@@ -11,7 +11,7 @@
  *   - As the kill-switch lever (Cloudflare WAF rule on UA+IP)
  *   - For support debugging ("what version is the user running?")
  */
-export const PLUGIN_VERSION = '0.3.0';
+export const PLUGIN_VERSION = '0.3.1';
 export const USER_AGENT = `llm402-openclaw-provider/${PLUGIN_VERSION}`;
 
 /**
