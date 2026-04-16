@@ -2,7 +2,7 @@
   "id": "llm402-provider",
   "name": "llm402.ai",
   "version": "0.3.0",
-  "description": "335 AI models, pay-per-request via Lightning, USDC, Cashu ecash, or prepaid balance. No accounts, no API keys.",
+  "description": "400+ AI models, pay-per-request via Bitcoin Lightning, USDC on Base, Cashu ecash, or prepaid balance. No accounts, no API keys.",
   "icon": "lightning",
   "author": "llm402",
   "homepage": "https://llm402.ai",
@@ -33,7 +33,7 @@
         "type": "select",
         "options": ["balance", "cashu", "x402", "lightning"],
         "default": "balance",
-        "description": "balance = prepaid token (simplest), cashu = ecash, x402 = USDC on Base, lightning = NWC"
+        "description": "balance = prepaid token (simplest), cashu = ecash, x402 = USDC on Base, lightning = L402 paid via Cashu melt"
       },
       {
         "key": "balanceToken",
