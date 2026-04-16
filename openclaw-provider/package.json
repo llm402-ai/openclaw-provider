@@ -31,7 +31,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node -e \"require('fs').chmodSync('build/cli.js', 0o755)\"",
     "test": "tsx test/run.ts",
     "clean": "rm -rf build",
     "prepack": "npm run clean && npm run build && npm run verify:versions",
