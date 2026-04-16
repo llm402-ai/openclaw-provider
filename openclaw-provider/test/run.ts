@@ -1233,8 +1233,8 @@ if (process.env.OPENCLAW_E2E === '1') {
 
 console.log('\n== Layer 1 Hardening Tests ==\n');
 
-test('Layer 1: PLUGIN_VERSION is 0.3.0', () => {
-  assert(PLUGIN_VERSION === '0.3.0', `expected 0.3.0, got "${PLUGIN_VERSION}"`);
+test('Layer 1: PLUGIN_VERSION is 0.3.1', () => {
+  assert(PLUGIN_VERSION === '0.3.1', `expected 0.3.1, got "${PLUGIN_VERSION}"`);
 });
 
 test('Layer 1: USER_AGENT is llm402-openclaw-provider/<version>', () => {

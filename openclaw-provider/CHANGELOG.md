@@ -6,6 +6,70 @@ Versioning: [SemVer](https://semver.org/).
 
 ---
 
+## [0.3.1] — 2026-04-16
+
+Documentation parity with [llm402.ai/docs](https://llm402.ai/docs#openclaw)
++ CI fix for workspace-mode builds. No runtime behavior changes; safe
+drop-in upgrade from `0.3.0`.
+
+### Fixed
+
+- **CI "Verify CLI bin executable" step**: `tsc` emits `build/cli.js`
+  with `0644` permissions. When installed from the published tarball
+  npm auto-chmods `bin` targets to `0755`, but the workspace-mode
+  flow (`npm ci` at root + `npm run build` in the package) does not,
+  so `npx --no-install llm402-openclaw --help` failed with
+  `Permission denied` on macOS and Ubuntu. `build` script now runs
+  `fs.chmodSync('build/cli.js', 0o755)` after `tsc` to cover both
+  flows. Tarball-install users were unaffected; clone-and-run users
+  now get a working CLI. Cross-platform safe — `fs.chmodSync` is a
+  no-op on Windows NTFS.
+- **LICENSE now bundled** in the published tarball (added to the
+  `files` field). The `README` link `[LICENSE](./LICENSE)` previously
+  resolved correctly in the source repo but 404'd when viewed via
+  npmjs.com or `node_modules/@llm402/openclaw-provider/`. License
+  audit tooling that checks for a `LICENSE` file in installed
+  packages now works.
+- **Stale `paymentMode` description in `openclaw.plugin.json`**:
+  `"lightning = NWC"` → `"lightning = L402 paid via Cashu melt"`.
+  The README and SECURITY.md have always described Lightning mode
+  as routing through Cashu-melt-for-invoice (no direct NWC); the
+  manifest was a stale label from an earlier design.
+
+### Changed
+
+- **README**:
+  - `335+ AI models` → `400+ AI models` (stale — live catalog returns
+    ~427 and [llm402.ai/docs](https://llm402.ai/docs#openclaw) uses a
+    `{{MODEL_COUNT}}` template).
+  - New **CLI environment variables** section documenting
+    `LLM402_SHOW_SECRETS`, `LLM402_NSEC`, `LLM402_EVM_KEY` alongside
+    the existing CLI commands table. Also notes why `--nsec` /
+    `--evm-key` flags are rejected (they leak via `/proc/cmdline`
+    and shell history).
+  - Disk-size claims corrected to measured values: `~260 KB for the
+    plugin, ~44 MB for viem` (was `~90 KB / ~60 MB`).
+  - Broken `[LICENSE](../LICENSE)` link pointed outside the package
+    root; now `./LICENSE` with the file bundled.
+- **`package.json` description**: aligned with README lead wording
+  — `"pay-per-request LLM inference via Bitcoin Lightning, USDC on
+  Base, Cashu ecash, or prepaid balance tokens"`.
+- **`openclaw.plugin.json` description**: aligned with README
+  — `"400+ AI models, pay-per-request via Bitcoin Lightning, USDC
+  on Base, Cashu ecash, or prepaid balance. No accounts, no API
+  keys."`
+
+### Verified
+
+- 111/111 tests pass (no behavior regression).
+- Three independent verification agents fresh-installed the tarball,
+  ran every CLI command + every config JSON example in the README,
+  and cross-checked 50+ factual claims against source. Final panel:
+  all `GO` after the LICENSE + size-claim fixes landed.
+- CI green on all 6 cells (ubuntu/macos/windows × Node 22/24).
+
+---
+
 ## [0.3.0] — 2026-04-15
 
 Single-package release. `@llm402/core` is merged into this package; no
