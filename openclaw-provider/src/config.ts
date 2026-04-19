@@ -58,7 +58,7 @@ export function resolveBaseRpcUrl(): string {
   return override;
 }
 
-export const PluginConfigSchema = z.object({
+const PluginConfigSchema = z.object({
   paymentMode: z.enum(['balance', 'cashu', 'x402', 'lightning']).default('balance'),
   balanceToken: z.string().regex(BALANCE_TOKEN_RE, 'Invalid balance token format').optional(),
   cashuNsec: z.string().regex(NSEC_RE, 'Invalid nsec format').optional(),
@@ -80,7 +80,7 @@ export const PluginConfigSchema = z.object({
   { message: 'Missing required credential for selected payment mode' }
 );
 
-export type PluginConfig = z.infer<typeof PluginConfigSchema>;
+type PluginConfig = z.infer<typeof PluginConfigSchema>;
 
 export function validateConfig(raw: Record<string, unknown>): PluginConfig {
   return PluginConfigSchema.parse(raw);

@@ -6,6 +6,7 @@
 
 import type { ModelsResponse, ModelEntry } from './lib/index.js';
 import { USER_AGENT } from './version.js';
+import { readResponseCapped } from './util.js';
 
 // Snapshot fetch to prevent monkey-patching by co-resident plugins
 const secureFetch = globalThis.fetch;
@@ -14,31 +15,9 @@ const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const FETCH_TIMEOUT_MS = 15_000;
 const MAX_RESPONSE_BYTES = 1_048_576; // 1MB
 
-/** Read a fetch Response body with a streaming byte cap. */
-async function readCatalogResponse(res: Response, maxBytes: number): Promise<string> {
-  if (!res.body) return '';
-  const reader = res.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      total += value.length;
-      if (total > maxBytes) {
-        reader.cancel();
-        throw new Error(`Catalog response exceeds ${maxBytes} byte limit`);
-      }
-      chunks.push(value);
-    }
-  } finally {
-    reader.releaseLock();
-  }
-  const decoder = new TextDecoder();
-  return chunks.map(c => decoder.decode(c, { stream: true })).join('') + decoder.decode();
-}
+// Streaming-capped reader consolidated into ./util.ts (v0.4.0).
 
-export interface CatalogModel {
+interface CatalogModel {
   id: string;
   name: string;
   object: string;
@@ -93,12 +72,12 @@ export class ModelCatalog {
       });
 
       if (!res.ok) {
-        const errText = await readCatalogResponse(res, MAX_RESPONSE_BYTES);
+        const errText = await readResponseCapped(res, MAX_RESPONSE_BYTES, 'Catalog response');
         throw new Error(`${res.status}: ${errText.slice(0, 200)}`);
       }
 
       // Stream with 1MB cap to prevent memory exhaustion from malicious upstream
-      const text = await readCatalogResponse(res, 1_048_576);
+      const text = await readResponseCapped(res, 1_048_576, 'Catalog response');
       const data = JSON.parse(text) as ModelsResponse;
       return data.data.map((m: ModelEntry) => ({
         id: m.id,

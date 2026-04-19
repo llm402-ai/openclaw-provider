@@ -15,6 +15,7 @@ import { PLUGIN_VERSION, USER_AGENT, KNOWN_BROKEN_VERSIONS, assertVersionNotBrok
 import { redactSecrets } from '../src/redact.js';
 import { resolveBaseUrl, resolveBaseRpcUrl, BASEURL_PROD, BASE_RPC_URL_PROD } from '../src/config.js';
 import { Llm402Wallet } from '../src/lib/index.js';
+import { readResponseCapped } from '../src/util.js';
 
 let passed = 0;
 let failed = 0;
@@ -284,6 +285,79 @@ test('Catalog handles bad URL gracefully', async () => {
   const catalog = new ModelCatalog('https://nonexistent.llm402.test');
   const models = await catalog.getModels();
   assert(models.length === 0, 'should return empty on failure');
+});
+
+// ====================== UTIL readResponseCapped PREFIX TESTS (v0.4.0) ======================
+//
+// Consolidation preserves the pre-v0.4.0 error string prefixes exactly.
+// Any drift here is a silent break for ops dashboards / log alerts that
+// grep these messages during incident response. Keep both tests green.
+
+console.log('\n== readResponseCapped prefix tests ==\n');
+
+test('readResponseCapped: Catalog response prefix fires on cap', async () => {
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      const chunk = new Uint8Array(1024).fill(65);
+      controller.enqueue(chunk);
+      controller.enqueue(chunk);
+      controller.close();
+    },
+  });
+  const res = new Response(body);
+  let caught: unknown;
+  try {
+    await readResponseCapped(res, 1024, 'Catalog response');
+  } catch (err) {
+    caught = err;
+  }
+  assert(caught instanceof Error, 'caught an Error');
+  assert(
+    (caught as Error).message === 'Catalog response exceeds 1024 byte limit',
+    `prefix mismatch: "${(caught as Error).message}"`
+  );
+});
+
+test('readResponseCapped: Response body prefix fires on cap', async () => {
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      const chunk = new Uint8Array(512).fill(66);
+      controller.enqueue(chunk);
+      controller.enqueue(chunk);
+      controller.close();
+    },
+  });
+  const res = new Response(body);
+  let caught: unknown;
+  try {
+    await readResponseCapped(res, 512, 'Response body');
+  } catch (err) {
+    caught = err;
+  }
+  assert(caught instanceof Error, 'caught an Error');
+  assert(
+    (caught as Error).message === 'Response body exceeds 512 byte limit',
+    `prefix mismatch: "${(caught as Error).message}"`
+  );
+});
+
+test('readResponseCapped: under cap returns full body', async () => {
+  const payload = 'hello world';
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode(payload));
+      controller.close();
+    },
+  });
+  const res = new Response(body);
+  const out = await readResponseCapped(res, 1024, 'Response body');
+  assert(out === payload, `expected "${payload}", got "${out}"`);
+});
+
+test('readResponseCapped: null body returns empty string', async () => {
+  const res = new Response(null);
+  const out = await readResponseCapped(res, 1024, 'Catalog response');
+  assert(out === '', `expected empty, got "${out}"`);
 });
 
 // ====================== PROXY TESTS ======================
@@ -1233,8 +1307,8 @@ if (process.env.OPENCLAW_E2E === '1') {
 
 console.log('\n== Layer 1 Hardening Tests ==\n');
 
-test('Layer 1: PLUGIN_VERSION is 0.3.1', () => {
-  assert(PLUGIN_VERSION === '0.3.1', `expected 0.3.1, got "${PLUGIN_VERSION}"`);
+test('Layer 1: PLUGIN_VERSION is 0.4.0', () => {
+  assert(PLUGIN_VERSION === '0.4.0', `expected 0.4.0, got "${PLUGIN_VERSION}"`);
 });
 
 test('Layer 1: USER_AGENT is llm402-openclaw-provider/<version>', () => {

@@ -6,6 +6,59 @@ Versioning: [SemVer](https://semver.org/).
 
 ---
 
+## [0.4.0] — 2026-04-19
+
+Internal type privacy tightening + one small DRY refactor. No user-facing
+runtime behavior changes; published binary remains byte-equivalent in
+streaming / error-handling behavior.
+
+Bumped to a **minor** (0.4.0, not 0.3.2) because removing symbols from
+the public export surface is a semver-minor break — even though zero
+external consumers were verified via cross-repo grep at release time,
+we prefer the honest version signal over a "silent patch" that could
+surprise a TS consumer relying on the removed type imports.
+
+### Changed
+
+- **Privatized 4 internal types** that were never in the public barrel
+  (`openclaw-provider/src/index.ts` still only exports the plugin's
+  `activate()` function + the default plugin entry; nothing else):
+  - `PluginConfigSchema` (config.ts)
+  - `PluginConfig` (config.ts)
+  - `CatalogModel` (catalog.ts)
+  - `ProxyOptions` (proxy.ts)
+
+  If any downstream code did a deep-path import like
+  `from '@llm402/openclaw-provider/build/config.js'` or similar (against
+  the `exports` map contract) and relied on these names, pin to `0.3.1`
+  or copy the types locally. No live consumers are known.
+
+- **Consolidated `readResponseCapped` into `src/util.ts`**. Previously
+  two near-duplicate implementations existed — `readCatalogResponse` in
+  catalog.ts and `readResponseCapped` in proxy.ts. The new helper takes
+  a `prefix: ResponsePrefix` parameter (literal union of `'Catalog
+  response' | 'Response body'`) so the error message is identical to
+  pre-0.4.0. Verified by two new tests (`readResponseCapped: Catalog
+  response prefix fires on cap`, `readResponseCapped: Response body
+  prefix fires on cap`) asserting the exact byte-cap error string at
+  both sites.
+
+### Security
+
+- No auth / caveat / budget / SSRF / cryptographic check was touched.
+- `NPM_TOKEN` CI promote-auth fix is intentionally **NOT** bundled here —
+  it's a security-posture change (stored long-lived token vs the current
+  OIDC-only model) and will be handled in a separate PR after a proper
+  security review of the scoping + GitHub Environment gating.
+
+### Notes for maintainers
+
+- Next promote of `latest` still requires a manual `npm login` + `npm
+  dist-tag add` from a trusted terminal (same as v0.3.1 required on
+  2026-04-19) until the CI promote auth fix lands separately.
+
+---
+
 ## [0.3.1] — 2026-04-16
 
 Documentation parity with [llm402.ai/docs](https://llm402.ai/docs#openclaw)
