@@ -38,6 +38,7 @@ import { BudgetTracker, BudgetError } from './budget.js';
 import { USER_AGENT } from './version.js';
 import { redactSecrets } from './redact.js';
 import { resolveBaseRpcUrl } from './config.js';
+import { readResponseCapped } from './util.js';
 
 // Snapshot fetch to prevent monkey-patching by co-resident plugins
 const secureFetch = globalThis.fetch;
@@ -48,33 +49,11 @@ const MAX_REQUEST_BODY_BYTES = 1_048_576; // 1MB
 const MAX_PROBE_RESPONSE_BYTES = 65_536; // 64KB
 const MAX_CATALOG_RESPONSE_BYTES = 1_048_576; // 1MB
 
-/** Read a fetch Response body with a streaming byte cap. Throws if cap exceeded. */
-async function readResponseCapped(res: Response, maxBytes: number): Promise<string> {
-  if (!res.body) return '';
-  const reader = res.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      total += value.length;
-      if (total > maxBytes) {
-        reader.cancel();
-        throw new Error(`Response body exceeds ${maxBytes} byte limit`);
-      }
-      chunks.push(value);
-    }
-  } finally {
-    reader.releaseLock();
-  }
-  const decoder = new TextDecoder();
-  return chunks.map(c => decoder.decode(c, { stream: true })).join('') + decoder.decode();
-}
+// Streaming-capped reader consolidated into ./util.ts (v0.4.0).
 
 // Security constants imported from ./lib/x402 (single source of truth)
 
-export interface ProxyOptions {
+interface ProxyOptions {
   /** llm402.ai base URL */
   targetUrl: string;
   /** Wallet for Cashu/x402/L402 payments (null for balance-only mode) */
@@ -233,7 +212,7 @@ export class PaymentProxy {
         signal: controller.signal,
       });
 
-      const body = await readResponseCapped(upstream, MAX_CATALOG_RESPONSE_BYTES);
+      const body = await readResponseCapped(upstream, MAX_CATALOG_RESPONSE_BYTES, 'Response body');
       const contentType = upstream.headers.get('content-type') || 'application/json';
       res.writeHead(upstream.status, { 'Content-Type': contentType });
       res.end(body);
@@ -453,7 +432,7 @@ export class PaymentProxy {
       });
 
       // Stream probe response with 64KB cap (prevents memory exhaustion from malicious upstream)
-      const text = await readResponseCapped(upstream, MAX_PROBE_RESPONSE_BYTES);
+      const text = await readResponseCapped(upstream, MAX_PROBE_RESPONSE_BYTES, 'Response body');
 
       if (upstream.status === 402) {
         const responseBody = JSON.parse(text) as PaymentRequiredResponse;
@@ -631,7 +610,7 @@ export class PaymentProxy {
       }
 
       if (!upstream.ok) {
-        const text = await readResponseCapped(upstream, MAX_PROBE_RESPONSE_BYTES);
+        const text = await readResponseCapped(upstream, MAX_PROBE_RESPONSE_BYTES, 'Response body');
         let errorMsg = 'Payment accepted but inference failed';
         try {
           const errJson = JSON.parse(text);
@@ -669,7 +648,7 @@ export class PaymentProxy {
         }
       } else {
         // Fallback: body is null (extremely rare with fetch). Cap to prevent memory exhaustion.
-        const text = await readResponseCapped(upstream, MAX_CATALOG_RESPONSE_BYTES);
+        const text = await readResponseCapped(upstream, MAX_CATALOG_RESPONSE_BYTES, 'Response body');
         res.end(text);
       }
     } catch (err) {
